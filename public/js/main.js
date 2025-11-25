@@ -3,6 +3,7 @@
 // --- Variables Globales ---
 const params = new URLSearchParams(location.search);
 const courseId = params.get('course_id');
+const userRole = params.get('role') || 'Visitante';
 const btnCsv = document.getElementById('btnCsv');
 const tableWrap = document.getElementById('wrap');
 const dashboardWrap = document.getElementById('dashboard-wrap');
@@ -228,6 +229,26 @@ function renderSumm(rows) {
     });
 }
 
+function displayUserRole() {
+    const badge = document.getElementById('userRoleBadge');
+    if (!badge) return;
+
+    // Limpiamos clases anteriores
+    badge.className = 'role-badge'; 
+    
+    // Texto a mostrar
+    badge.textContent = userRole;
+
+    // Asignar color según el rol (si quieres que se vea pro)
+    if (userRole === 'Profesor' || userRole === 'Instructor') {
+        badge.classList.add('role-profesor');
+    } else if (userRole === 'Estudiante' || userRole === 'Learner') {
+        badge.classList.add('role-estudiante');
+    } else if (userRole === 'Admin' || userRole === 'Administrador') {
+        badge.classList.add('role-admin');
+    }
+}
+
 // --- Modal de Detalle (SIN CLICKS) ---
 async function showItemDetail(studentId, moduleId, studentName, moduleName) {
     if (!detailData) {
@@ -280,6 +301,7 @@ window.addEventListener('click', (event) => {
 
 // --- ARRANQUE ---
 (async () => {
+    displayUserRole();
     const loader = document.getElementById('loading-overlay');
     if (loader) loader.classList.remove('hidden');
 

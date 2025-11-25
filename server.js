@@ -328,12 +328,29 @@ web.get('/canvas-courses', async (req, res) => {
       } catch (err) {}
   }
 
-  lti.onConnect(async (token, req, res) => {
+lti.onConnect(async (token, req, res) => {
     const customId = token.platformContext.custom && token.platformContext.custom.canvas_course_id;
     const courseId = customId || token.platformContext.context.id;
     
+    const roles = token.platformContext.roles || [];
+    let finalRole = 'Visitante'; // Default
+
+    if (roles.some(r => r.includes('Administrator'))) {
+        finalRole = 'Administrador';
+    } else if (roles.some(r => r.includes('Instructor'))) {
+        finalRole = 'Profesor';
+    } else if (roles.some(r => r.includes('Learner') || r.includes('Student'))) {
+        finalRole = 'Estudiante';
+    } else if (roles.some(r => r.includes('TeachingAssistant'))) {
+        finalRole = 'Auxiliar'; // TA
+    }
+
+    console.log(`🔗 LTI Launch: Curso ${courseId} | Rol: ${finalRole}`);
+
     if (!courseId) return res.status(400).send('No hay contexto de curso.');
-    return res.redirect(`/report?course_id=${courseId}`);
+    
+    // 3. Redirigimos pasando AMBOS datos: ID y ROL
+    return res.redirect(`/report?course_id=${courseId}&role=${finalRole}`);
   });
 
   const host = express();
