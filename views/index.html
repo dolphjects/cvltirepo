@@ -19,6 +19,39 @@
   <h2 id="courseName" style="color: #34495e; margin: -10px 0 0 0; font-size: 1.5em;"></h2>
   <p id="courseCode" style="color: #7f8c8d; margin: 5px 0 20px 0; font-size: 1.1em;"></p>
 
+ <div id="student-view-container" style="display: none;">
+    
+    <h1 id="studentNameDisplay" style="color: #2c3e50; text-align: center;">Hola, Alumno</h1>
+
+    <div class="student-info-box">
+        <h3>📖 EXPLICACIÓN DEL REPORTE</h3>
+        <p>Aquí encontrarás el desglose de tu avance por módulos...</p>
+    </div>
+    <div class="student-info-box">
+        <h3>⚙️ FUNCIONAMIENTO</h3>
+        <p>Las barras de progreso indican tu porcentaje de completitud...</p>
+    </div>
+
+    <div class="student-table-wrapper">
+        <table id="student-progress-table">
+            <thead>
+                <tr>
+                    <th>Módulo</th>
+                    <th>%</th>
+                    <th style="width: 50%;">Progreso</th>
+                </tr>
+            </thead>
+            <tbody id="student-table-body">
+                </tbody>
+        </table>
+    </div>
+
+    <div id="daily-message-box" class="motivational-box">
+        <span id="daily-message-text">Cargando frase del día...</span>
+    </div>
+
+</div>
+
   <div class="actions">
     <a class="pill" id="btnCsv" href="#">⬇️ Descargar CSV</a>
   </div>

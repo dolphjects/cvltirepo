@@ -7,6 +7,7 @@ const userRole = params.get('role') || 'Visitante';
 const btnCsv = document.getElementById('btnCsv');
 const tableWrap = document.getElementById('wrap');
 const dashboardWrap = document.getElementById('dashboard-wrap');
+const userId = params.get('user_id');
 
 // Variables de Gráficas (Conservadas por si las usas luego)
 const chartModal = document.getElementById('chartModal');
@@ -306,7 +307,7 @@ window.addEventListener('click', (event) => {
     if (loader) loader.classList.remove('hidden');
 
     try {
-        // 1. Info Curso
+        // Info del curso
         try {
             const cRes = await fetch(`/course-details?course_id=${courseId}`);
             const c = await cRes.json();
@@ -314,7 +315,7 @@ window.addEventListener('click', (event) => {
             document.getElementById('courseCode').textContent = `Código: ${c.codigo || 'N/A'}`;
         } catch(e) { console.error(e); }
 
-        // 2. Datos Pesados
+        // Descarga de datos
         const res = await fetch(`/api/process-report?course_id=${courseId}`);
         if (!res.ok) throw new Error('Error cargando datos');
         
@@ -322,19 +323,71 @@ window.addEventListener('click', (event) => {
         summaryData = megaData.summary;
         detailData = megaData.detail;
 
-        // 3. Generar nombres fijos para módulos
+        // --- VISTA ALUMNO ---
+        if (userRole === 'Estudiante') {
+            const studentMsg = document.getElementById('student-view-container');
+            if (studentMsg) studentMsg.style.display = 'block';
+
+            if (filtersWrap) filtersWrap.style.display = 'none';
+            if (tableWrap) tableWrap.style.display = 'none';
+            if (btnCsv) btnCsv.parentElement.style.display = 'none';
+
+            const myData = summaryData.filter(row => row.student_id == userId || row.sis_user_id == userId);
+
+            if (myData.length > 0) {
+                document.getElementById('studentNameDisplay').textContent = `Hola, ${myData[0].student_name}`;
+                
+                const tbody = document.getElementById('student-table-body');
+                let htmlRows = '';
+                
+                myData.forEach(row => {
+                    const pct = row.module_pct;
+                    let colorClass = 'bar-red';
+                    if (pct >= 40 && pct <= 79) colorClass = 'bar-yellow';
+                    if (pct >= 80) colorClass = 'bar-green';
+
+                    htmlRows += `
+                        <tr>
+                            <td><strong>${row.module_name}</strong></td>
+                            <td>${pct}%</td>
+                            <td>
+                                <div class="progress-track">
+                                    <div class="progress-fill ${colorClass}" style="width: ${pct}%;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = htmlRows;
+            } else {
+                document.getElementById('student-table-body').innerHTML = '<tr><td colspan="3">No se encontraron datos.</td></tr>';
+            }
+
+            // Frase del día
+            const frases = [
+                "¡Feliz Domingo! Recarga energías.",
+                "¡Lunes de inicio! Tú puedes con todo.",
+                "Martes de constancia. Sigue avanzando.",
+                "Miércoles, mitad de camino. ¡No te rindas!",
+                "Jueves de esfuerzo. Ya casi llegas.",
+                "¡Viernes! Cierra la semana con broche de oro.",
+                "Sábado de repaso y descanso."
+            ];
+            document.getElementById('daily-message-text').textContent = frases[new Date().getDay()];
+
+            if (loader) loader.classList.add('hidden');
+            return;
+        }
+
+        // --- VISTA PROFESOR ---
         const uniqueModuleIds = [...new Set(summaryData.map(item => item.module_id))];
         uniqueModuleIds.forEach((id, index) => {
             globalModuleNames[id] = `Módulo ${index}`;
         });
 
-        // 4. Render
         summaryView = 'avance';
         tableWrap.style.display = 'block';
         if (filtersWrap) filtersWrap.style.display = 'flex';
-        // Nota: Como borraste el HTML de stateFilterGroup, no hace falta intentar mostrarlo, 
-        // pero si lo dejaras en HTML, aquí deberías ocultarlo o borrar esta línea.
-        // if (stateFilterGroup) stateFilterGroup.style.display = 'none'; 
 
         populateFilters(summaryData, 'summary');
         renderSumm(summaryData);

@@ -329,28 +329,28 @@ web.get('/canvas-courses', async (req, res) => {
   }
 
 lti.onConnect(async (token, req, res) => {
-    const customId = token.platformContext.custom && token.platformContext.custom.canvas_course_id;
-    const courseId = customId || token.platformContext.context.id;
+    // 1. ID Curso
+    const customContext = token.platformContext.custom;
+    const courseId = (customContext && customContext.canvas_course_id) || token.platformContext.context.id;
     
+    // 2. ID Usuario (NUEVO)
+    // Intentamos leer el ID numérico de Canvas, si no, usamos el 'sub' (UUID de LTI)
+    const userId = (customContext && customContext.canvas_user_id) || token.user;
+
+    // 3. Roles
     const roles = token.platformContext.roles || [];
-    let finalRole = 'Visitante'; // Default
+    let userRole = 'Visitante';
+    if (roles.some(r => r.includes('Administrator'))) userRole = 'Admin';
+    else if (roles.some(r => r.includes('Instructor'))) userRole = 'Profesor';
+    else if (roles.some(r => r.includes('Learner') || r.includes('Student'))) userRole = 'Estudiante';
+    else if (roles.some(r => r.includes('TeachingAssistant'))) userRole = 'Auxiliar';
 
-    if (roles.some(r => r.includes('Administrator'))) {
-        finalRole = 'Administrador';
-    } else if (roles.some(r => r.includes('Instructor'))) {
-        finalRole = 'Profesor';
-    } else if (roles.some(r => r.includes('Learner') || r.includes('Student'))) {
-        finalRole = 'Estudiante';
-    } else if (roles.some(r => r.includes('TeachingAssistant'))) {
-        finalRole = 'Auxiliar'; // TA
-    }
-
-    console.log(`🔗 LTI Launch: Curso ${courseId} | Rol: ${finalRole}`);
+    console.log(`🔗 Launch: Curso ${courseId} | User: ${userId} | Rol: ${userRole}`);
 
     if (!courseId) return res.status(400).send('No hay contexto de curso.');
     
-    // 3. Redirigimos pasando AMBOS datos: ID y ROL
-    return res.redirect(`/report?course_id=${courseId}&role=${finalRole}`);
+    // 4. Redirección (Agregamos &user_id)
+    return res.redirect(`/report?course_id=${courseId}&role=${userRole}&user_id=${userId}`);
   });
 
   const host = express();
