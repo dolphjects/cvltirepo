@@ -246,11 +246,12 @@ window.addEventListener('click', (event) => {
             document.getElementById('courseCode').textContent = `Código: ${cursoInfoGlobal.codigo || 'N/A'}`;
         } catch(e) { console.error(e); }
 
-        // 2. Rol Real
+        // 2. BUSCAR ROL REAL (Async con Autocorrección)
         fetch(`/api/get-real-role?course_id=${courseId}&user_id=${userId}`)
             .then(r => r.json())
             .then(d => {
                 if (d.role) {
+                    console.log(`✅ Rol detectado: ${d.role}`);
                     const badge = document.getElementById('userRoleBadge');
                     if (badge) {
                         badge.textContent = d.role;
@@ -259,9 +260,19 @@ window.addEventListener('click', (event) => {
                             badge.style.backgroundColor = '#6f42c1'; badge.style.color = '#fff';
                         }
                     }
+
+                    // --- AUTOCORRECCIÓN DE COORDINADOR ---
+                    // Si la API dice que es Coordinador AC pero la URL dice Profesor/Visitante
+                    if (d.role === 'Coordinador AC' && userRole !== 'coordinador ac') {
+                        console.log("⚠️ Corrección: Rol Coordinador detectado. Recargando...");
+                        const newUrl = new URL(window.location.href);
+                        newUrl.searchParams.set('role', 'Coordinador AC');
+                        window.location.href = newUrl.toString();
+                    }
+                    // -------------------------------------
                 }
             })
-            .catch(e => console.warn(e));
+            .catch(e => console.warn('⚠️ No se pudo obtener rol detallado', e));
 
         // 3. Descargar Datos
         const res = await fetch(`/api/process-report?course_id=${courseId}`);
