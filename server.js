@@ -21,12 +21,13 @@ const {
   NODE_ENV 
 } = process.env;
 
-// --- Helpers Canvas ---
+// --- Configuración Axios ---
 const canvas = axios.create({
   baseURL: `${PLATFORM_URL}/api/v1`,
   headers: { Authorization: `Bearer ${CANVAS_TOKEN || ''}` }
 });
 
+// --- Helpers de Paginación y Datos ---
 async function getAll(url, params = {}) {
   let out = [];
   let next = url;
@@ -64,7 +65,7 @@ async function getModulesForStudent(courseId, studentId) {
   });
 }
 
-// --- Lógica Central del Reporte (Reutilizable) ---
+// --- Lógica de Negocio (Reporte Profesor) ---
 async function generateReportData(courseId) {
   if (!CANVAS_TOKEN) throw new Error('Falta CANVAS_TOKEN');
   
@@ -123,7 +124,6 @@ async function generateReportData(courseId) {
   const summaryRows = flat.filter(r => r.type === 'summary');
   const detailRows = flat.filter(r => r.type === 'detail');
 
-  // Generar CSV String
   const studentsMap = new Map();
   const modulesMap = new Map();
   const matrix = {};
@@ -168,13 +168,12 @@ async function generateReportData(courseId) {
   };
 }
 
-// --- Configuración Servidor ---
+// --- Configuración LTI ---
 const web = express();
 web.set('views', path.join(__dirname, 'views'));
 web.use(express.urlencoded({ extended: true }));
 web.use(express.json());
 
-const isProduction = NODE_ENV === 'production';
 const lti = LtiProvider; 
 
 lti.setup(
@@ -189,121 +188,179 @@ lti.setup(
   }
 );
 
-lti.whitelist('/', '/canvas-courses', '/course-details', '/report', '/report/data', '/api/process-report', '/css', '/js', '/img');
+lti.whitelist(
+  '/', 
+  '/canvas-courses', 
+  '/course-details', 
+  '/report', 
+  '/report/data', 
+  '/api/process-report',
+  '/api/get-real-role', 
+  '/api/coordinator-report',
+  '/css', 
+  '/js', 
+  '/img'
+);
 
-// --- Rutas ---
+// --- Rutas de Vistas ---
+web.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'views', 'selector.html')); });
+web.get('/report', (req, res) => { res.sendFile(path.join(__dirname, 'views', 'index.html')); });
 
-web.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'selector.html'));
-});
-
-// 1. Ruta Rápida (Solo HTML + Pantalla Carga)
-web.get('/report', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'index.html'));
-});
-
-// 2. Ruta API (Lógica Pesada para Main.js)
+// --- Rutas API: Profesor ---
 web.get('/api/process-report', async (req, res) => {
   const { course_id } = req.query;
   if (!course_id) return res.status(400).json({ error: 'Falta course_id' });
-  
   try {
-    console.time(`API_${course_id}`);
     const data = await generateReportData(course_id);
-    console.timeEnd(`API_${course_id}`);
     res.json({ summary: data.summary, detail: data.detail });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Rutas API: Detección de Rol Real ---
+web.get('/api/get-real-role', async (req, res) => {
+  const { course_id, user_id } = req.query;
+  if (!course_id || !user_id) return res.status(400).json({ error: 'Faltan datos' });
+  if (!CANVAS_TOKEN) return res.status(500).json({ error: 'Falta Token' });
+
+  try {
+    const baseUrl = PLATFORM_URL.endsWith('/') ? PLATFORM_URL.slice(0, -1) : PLATFORM_URL;
+    const response = await axios.get(`${baseUrl}/api/v1/courses/${course_id}/enrollments`, {
+      headers: { Authorization: `Bearer ${CANVAS_TOKEN}` },
+      params: { user_id: user_id }
+    });
+
+    const enrollments = response.data;
+    if (enrollments && enrollments.length > 0) {
+      const custom = enrollments.find(e => e.role !== e.type);
+      if (custom) {
+        console.log(`✅ Rol Personalizado: ${custom.role} (User: ${user_id})`);
+        return res.json({ role: custom.role });
+      }
+      console.log(`ℹ️ Rol Estándar: ${enrollments[0].role} (User: ${user_id})`);
+      return res.json({ role: enrollments[0].role });
+    }
+
+    console.log(`⚠️ Sin inscripciones para User: ${user_id}`);
+    return res.json({ role: null });
+
+  } catch (error) {
+    console.error('❌ Error buscando rol:', error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// 3. Ruta CSV (Descarga directa)
+// --- Rutas API: Reporte Coordinador ---
+web.get('/api/coordinator-report', async (req, res) => {
+  const { course_id } = req.query;
+  if (!course_id || !CANVAS_TOKEN) return res.status(400).json({ error: 'Datos incompletos' });
+
+  try {
+    const baseUrl = PLATFORM_URL.endsWith('/') ? PLATFORM_URL.slice(0, -1) : PLATFORM_URL;
+    const headers = { Authorization: `Bearer ${CANVAS_TOKEN}` };
+
+    console.log(`📋 Generando reporte Coordinador para curso: ${course_id}`);
+
+    // A. Datos Maestro
+    const teachersRes = await axios.get(`${baseUrl}/api/v1/courses/${course_id}/enrollments`, {
+      headers,
+      params: { type: ['TeacherEnrollment'] }
+    });
+    const teacher = teachersRes.data[0] || null;
+    const teacherData = {
+        name: teacher ? teacher.user.name : 'No asignado',
+        last_login: teacher ? teacher.last_activity_at : null,
+        total_seconds: teacher ? teacher.total_activity_time : 0
+    };
+
+    // B. Total Alumnos Activos
+    const studentsEnrollments = await axios.get(`${baseUrl}/api/v1/courses/${course_id}/enrollments`, {
+        headers,
+        params: { type: ['StudentEnrollment'], state: ['active'], per_page: 100 }
+    });
+    const totalStudents = studentsEnrollments.data.length;
+
+    // C. Tareas y Exámenes
+    const assignmentsRes = await axios.get(`${baseUrl}/api/v1/courses/${course_id}/assignments`, {
+        headers,
+        params: { per_page: 50, order_by: 'due_at' }
+    });
+
+    const assignments = assignmentsRes.data.map(a => {
+        const pending = a.needs_grading_count || 0;
+        const graded_approx = Math.max(0, totalStudents - pending); 
+        let typeLabel = 'Tarea';
+        if (a.quiz_id) typeLabel = 'Examen';
+        else if (a.submission_types.includes('discussion_topic')) typeLabel = 'Foro';
+
+        return {
+            title: a.name,
+            type: typeLabel,
+            due_at: a.lock_at || a.due_at,
+            needs_grading: pending,
+            graded: graded_approx,
+            total_students: totalStudents
+        };
+    });
+
+    res.json({ teacher: teacherData, total_students: totalStudents, assignments: assignments });
+
+  } catch (error) {
+    console.error('❌ Error reporte coordinador:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Rutas API: Auxiliares (CSV, Detalles) ---
 web.get('/report/data', async (req, res) => {
   const { kind, course_id } = req.query;
   if (!course_id) return res.status(400).send('Falta course_id');
   
-  // Cache simple en memoria (opcional, para el CSV)
   const cacheKey = `csv_${course_id}`;
   if (kind === 'csv' && web.locals[cacheKey]) {
      res.setHeader('Content-Type', 'text/csv; charset=utf-8'); 
      res.setHeader('Content-Disposition', 'attachment; filename="progreso.csv"');
      return res.send(web.locals[cacheKey]);
   }
-
   try {
     const data = await generateReportData(course_id);
     if (kind === 'csv') {
-      web.locals[cacheKey] = data.csv; // Guardamos en cache simple
+      web.locals[cacheKey] = data.csv; 
       res.setHeader('Content-Type', 'text/csv; charset=utf-8'); 
       res.setHeader('Content-Disposition', 'attachment; filename="progreso.csv"');
       return res.send(data.csv);
     }
-    res.status(400).send('Solo CSV soportado en esta ruta por ahora');
-  } catch (e) {
-    res.status(500).send(e.message);
-  }
+    res.status(400).send('Solo CSV');
+  } catch (e) { res.status(500).send(e.message); }
 });
 
-// --- Rutas Auxiliares ---
+web.get('/canvas-courses', async (req, res) => {
+  try {
+    if (!CANVAS_TOKEN) throw new Error('Falta CANVAS_TOKEN');
+    const baseUrl = PLATFORM_URL.endsWith('/') ? PLATFORM_URL.slice(0, -1) : PLATFORM_URL;
+    const response = await axios.get(`${baseUrl}/api/v1/courses`, {
+      headers: { Authorization: `Bearer ${CANVAS_TOKEN}` },
+      params: { per_page: 100, enrollment_state: 'active', include: ['term'] }
+    });
+    const cursos = response.data.map(c => ({ id: c.id, nombre: c.name, codigo: c.course_code }));
+    res.json({ success: true, total: cursos.length, cursos });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 web.get('/course-details', async (req, res) => {
   const { course_id } = req.query;
   if (!course_id) return res.status(400).json({ error: 'Falta course_id' });
   try {
     const response = await canvas.get(`/courses/${course_id}`);
-    res.json({ id: response.data.id, nombre: response.data.name, codigo: response.data.course_code });
+    res.json({ 
+        id: response.data.id, 
+        nombre: response.data.name, 
+        codigo: response.data.course_code, 
+        formato: response.data.course_format || 'No especificado' 
+    });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-/*
-web.get('/canvas-test', async (req, res) => {
-  try {
-    const response = await axios.get(`${PLATFORM_URL}/api/v1/courses`, { headers: { Authorization: `Bearer ${CANVAS_TOKEN}` } });
-    res.json({ success: true, courses: response.data });
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-*/
-
-web.get('/canvas-courses', async (req, res) => {
-  try {
-    if (!CANVAS_TOKEN) throw new Error('Falta CANVAS_TOKEN en .env');
-
-    // 1. Limpieza inteligente de URL (Quita la barra final si existe)
-    // Esto evita el error de "doble slash" que rompe la API
-    const baseUrl = PLATFORM_URL.endsWith('/') ? PLATFORM_URL.slice(0, -1) : PLATFORM_URL;
-    
-    console.log(`🔍 Selector pidiendo cursos a: ${baseUrl}/api/v1/courses`);
-
-    // 2. Petición a Canvas
-    const response = await axios.get(`${baseUrl}/api/v1/courses`, {
-      headers: { Authorization: `Bearer ${CANVAS_TOKEN}` },
-      params: {
-        per_page: 100,              // Traer hasta 100 cursos
-        enrollment_state: 'active', // Solo cursos activos
-        include: ['term']           // Opcional: traer periodo escolar
-      }
-    });
-
-    // 3. Mapeo de datos (Limpieza para tu HTML)
-    const cursos = response.data.map(curso => ({
-      id: curso.id,
-      nombre: curso.name,
-      codigo: curso.course_code
-    }));
-
-    console.log(`✅ Cursos encontrados: ${cursos.length}`);
-    res.json({ success: true, total: cursos.length, cursos });
-
-  } catch (error) {
-    console.error("❌ Error en /canvas-courses:", error.response?.data || error.message);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      details: error.response?.data 
-    });
-  }
-});
-
-// --- Deploy ---
+// --- Deploy y Lanzamiento LTI ---
 (async () => {
   await lti.deploy({ serverless: true, silent: true });
 
@@ -328,28 +385,23 @@ web.get('/canvas-courses', async (req, res) => {
       } catch (err) {}
   }
 
-lti.onConnect(async (token, req, res) => {
-    // 1. ID Curso
+  lti.onConnect(async (token, req, res) => {
     const customContext = token.platformContext.custom;
     const courseId = (customContext && customContext.canvas_course_id) || token.platformContext.context.id;
-    
-    // 2. ID Usuario (NUEVO)
-    // Intentamos leer el ID numérico de Canvas, si no, usamos el 'sub' (UUID de LTI)
     const userId = (customContext && customContext.canvas_user_id) || token.user;
 
-    // 3. Roles
     const roles = token.platformContext.roles || [];
-    let userRole = 'Visitante';
-    if (roles.some(r => r.includes('Administrator'))) userRole = 'Admin';
-    else if (roles.some(r => r.includes('Instructor'))) userRole = 'Profesor';
-    else if (roles.some(r => r.includes('Learner') || r.includes('Student'))) userRole = 'Estudiante';
-    else if (roles.some(r => r.includes('TeachingAssistant'))) userRole = 'Auxiliar';
+    let userRole = 'visitante';
+    
+    // Mapeo a minúsculas
+    if (roles.some(r => r.includes('Administrator'))) userRole = 'admin';
+    else if (roles.some(r => r.includes('Instructor'))) userRole = 'profesor';
+    else if (roles.some(r => r.includes('Learner') || r.includes('Student'))) userRole = 'estudiante';
+    else if (roles.some(r => r.includes('TeachingAssistant'))) userRole = 'auxiliar';
 
     console.log(`🔗 Launch: Curso ${courseId} | User: ${userId} | Rol: ${userRole}`);
 
     if (!courseId) return res.status(400).send('No hay contexto de curso.');
-    
-    // 4. Redirección (Agregamos &user_id)
     return res.redirect(`/report?course_id=${courseId}&role=${userRole}&user_id=${userId}`);
   });
 
