@@ -24,13 +24,53 @@
     
     <h1 id="studentNameDisplay" style="color: #2c3e50; text-align: center;">Hola, Alumno</h1>
 
-    <div class="student-info-box">
-        <h3>📖 EXPLICACIÓN DEL REPORTE</h3>
-        <p>Aquí encontrarás el desglose de tu avance por módulos...</p>
+  <div class="student-info-box">
+        <details class="info-toggle">
+            <summary>
+                <h3>
+                    <span class="toggle-icon">▼</span>
+                    <span>📖 EXPLICACIÓN DEL REPORTE</span>
+                </h3>
+            </summary>
+            <div class="toggle-content">
+                <p>Este reporte de avance te ofrece una visión clara del progreso que llevas en cada módulo de tu materia, mostrando el porcentaje de contenidos que has revisado. En el caso de materia en línea, refleja tu asistencia a cada clase. Su propósito es ayudarte a llevar un control real de tu propio ritmo de estudio, identificar cómo vas avanzando y motivarte a mantener constancia en tu proceso formativo.</p>
+            </div>
+        </details>
     </div>
+
     <div class="student-info-box">
-        <h3>⚙️ FUNCIONAMIENTO</h3>
-        <p>Las barras de progreso indican tu porcentaje de completitud...</p>
+        <details class="info-toggle">
+            <summary>
+                <h3>
+                    <span class="toggle-icon">▼</span>
+                    <span>⚙️ FUNCIONAMIENTO</span>
+                </h3>
+            </summary>
+            <div class="toggle-content">
+                <ul>
+                    <li style="margin-bottom: 10px;">
+                        Cada módulo muestra una barra de progreso que indica el porcentaje de contenido que has revisado dentro del curso.
+                        <ul style="margin-top: 5px; list-style-type: circle;">
+                            <li style="margin-bottom: 5px;">
+                                <strong style="color: #6AA84F;">Color verde:</strong> ¡Felicidades! Has terminado de revisar el módulo.
+                            </li>
+                            <li style="margin-bottom: 5px;">
+                                <strong style="color: #F1C232;">Color amarillo:</strong> ¡Vas por buen camino! Aún falta contenido por revisar, sigue avanzando.
+                            </li>
+                            <li style="margin-bottom: 5px;">
+                                <strong style="color: #E06666;">Color rojo:</strong> ¡Ya diste el primer paso! Aún tienes mucho por explorar en este módulo, sigue adelante.
+                            </li>
+                        </ul>
+                    </li>
+                    <li style="margin-bottom: 20px;">
+                        A la derecha de cada barra se muestra el porcentaje exacto de avance, lo que te permite identificar con precisión cómo vas en cada tema.
+                    </li>
+                </ul>
+                <p style="margin-top: 20px;">
+                    Recuerda: Cada porcentaje refleja un paso más hacia tus metas académicas y profesionales.
+                </p>
+            </div>
+        </details>
     </div>
 
     <div class="student-table-wrapper">

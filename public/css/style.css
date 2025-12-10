@@ -305,3 +305,67 @@ tr:hover { background-color: #f1f1f1; }
     /* Barra de estado */
     .grading-bad { background-color: #f8d7da; color: #721c24; } /* Rojo */
     .grading-ok { background-color: #d1e7dd; color: #0f5132; } /* Verde */
+    
+    
+    /* Limpieza del summary por defecto */
+details.info-toggle summary {
+    list-style: none;
+    outline: none;
+    cursor: pointer;
+}
+details.info-toggle summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Estilo del H3: Todo alineado a la izquierda */
+details.info-toggle summary h3 {
+    display: flex;
+    justify-content: flex-start; /* Alinea todo al inicio (izquierda) */
+    align-items: center;         /* Centra verticalmente */
+    gap: 12px;                   /* Espacio entre la flecha y el texto */
+    
+    margin: 0;
+    padding: 12px 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    color: #2c3e50;
+    font-size: 1.1em;
+    transition: background-color 0.2s;
+}
+
+details.info-toggle summary h3:hover {
+    background-color: #e2e6ea;
+}
+
+/* Configuración de la flecha */
+.toggle-icon {
+    font-size: 0.8em;
+    color: #7f8c8d;
+    display: inline-block;
+    transition: transform 0.2s ease;
+    
+    /* ESTADO CERRADO: Rotada -90 grados (apunta a la derecha ▶) */
+    transform: rotate(-90deg); 
+}
+
+/* ESTADO ABIERTO: Rotación normal (apunta abajo ▼) */
+details.info-toggle[open] summary .toggle-icon {
+    transform: rotate(0deg);
+}
+
+/* Contenedor del contenido oculto */
+.toggle-content {
+    padding: 15px 20px 15px 45px; /* Un poco más de padding izq para indentar el texto */
+    border: 1px solid #e9ecef;
+    border-top: none;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    background-color: #fff;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
