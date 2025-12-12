@@ -381,7 +381,7 @@ window.addEventListener('click', (event) => {
             const frases = [
                 "¡Feliz Domingo!", "¡Lunes de inicio!", "Martes de constancia.", 
                 "Miércoles, mitad de camino.", "Jueves de esfuerzo.", 
-                "¡Viernes! Cierra con broche de oro.", "Sábado de repaso."
+                "Un empujoncito más hoy y el fin de semana será puro disfrute.", "Sábado de repaso."
             ];
             document.getElementById('daily-message-text').textContent = frases[new Date().getDay()];
 

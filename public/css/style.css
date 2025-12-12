@@ -267,9 +267,9 @@ tr:hover { background-color: #f1f1f1; }
     .progress-fill { height: 100%; width: 0%; transition: width 1s ease-in-out; border-radius: 10px; }
     
     /* Colores Semáforo */
-    .bar-red { background-color: #e74c3c; }    /* 0-39 */
-    .bar-yellow { background-color: #f1c40f; } /* 40-79 */
-    .bar-green { background-color: #2ecc71; }  /* 80-100 */
+    .bar-red { background-color: #ff6565; }    /* 0-39 */
+    .bar-yellow { background-color: #f3e837; } /* 40-79 */
+    .bar-green { background-color: #9fed3a; }  /* 80-100 */
 
     /* Mensaje Motivacional */
     .motivational-box {
